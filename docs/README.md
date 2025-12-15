@@ -1,5 +1,7 @@
 # ziphius-mfas-hhmm
 
+[![DOI](https://zenodo.org/badge/1116917767.svg)](https://doi.org/10.5281/zenodo.17941561)
+
 This repository contains code and materials related to the manuscript:
 
 "Assessment of goose-beaked whale responses to mid-frequency active sonar using a hierarchical hidden Markov model,"
