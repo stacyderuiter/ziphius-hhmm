@@ -38,6 +38,10 @@ fig-dpi: 300
 editor: source
 ---
 
+You can view this file online at: <https://stacyderuiter.github.io/ziphius-hhmm/docs/supplemental-materials.html>.
+
+The online html version includes interactive versions of many figures (allowing you to zoom), which the PDF does not include.
+
 ```{r}
 #| label: setup
 #| include: false
