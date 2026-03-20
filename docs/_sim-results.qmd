@@ -1,8 +1,32 @@
 
 
-# Likelihood Weighting Simulation Results
+# Likelihood Weighting Simulation Study
 
-## Case 1: True Model Includes MFAS Effect
+## Methods
+
+Facing challenges in identifying appropriate starting values for all HHMM model parameters and worried that dive-cycle-level observations might be "swamped" by the inevitably much more numerous 5-minute-scale observations in the model fitting process, we explored the idea of weighting the model likelihood by time-step duration.
+
+We carried out a small simulation study to assess the effectiveness of adding weights on the likelihood function such that the likelihood of each coarse-scale time-step was multiplied by the median number of five-minute intervals per dive cycle across the full dataset. 
+
+We chose not to weight dive cycles by the exact observed number of five-minute periods they contained since that strategy, while logical, would afford greatest weight to the longest dives cycles. Since previous work has indicated that *Ziphius* perform longer dive cycles in response to MFAS exposure, we chose equal weighting of all dive cycles as a conservative approach. 
+
+We simulated from two models: HHMMs like those fitted in this study, with and without an effect of MFAS RMS RL on the coarse-scale transition probability matrix. For each of the 100 simulations for each model, we generated a dataset the same size as the observed dataset (13 individuals and a total of 569 dive cycles), and fitted four HHMMs: with and without MFAS covariate, and with and without likelihood weights. We determined confidence interval coverage and model selection accuracy in each scenario. 
+
+
+## Results
+
+Models that were fitted employing weighting of the likelihood function (to correspond to the longer temporal duration of the coarse-scale states) did not perform well: in sets of 100 simulations, 95% confidence intervals for the parameter measuring the MFAS effect on the probability of transition between coarse-scale states had coverage of just 27%, compared to 96% for the unweighted models (Table S9, Figure S42). 
+
+On the other hand, the weighted models had 99% power to detect MFAS effects that were truly present, compared to 75% for the unweighted models. 
+
+When the true model included no MFAS effect, the unweighted model falsely detected it only 1% of the time, compared to 88% for the weighted model (Table S11). 
+
+All these results were driven by underestimation of uncertainty in weighted models, yielding unrealistically small standard errors and narrow confidence intervals. 
+
+**Because weighting would result in misleading inference, all models presented in the main body of the paper were fitted without it.** Simulation results are included in these supplemental materials mainly as a caution to anyone considering a similar approach.
+
+
+### Case 1: True Model Includes MFAS Effect
 
 <!-- ### Read in Results -->
 
@@ -30,7 +54,7 @@ sim_results <- bind_rows(sim_results) |>
 sim_CI <- sim_results
 ```
 
-### AIC and likelihood results
+#### AIC and likelihood results
 
 ```{r}
 sim_results <- sim_results |>
@@ -76,7 +100,7 @@ selection_table1 <- selection_table1 |>
 Proportion of simulations where the difference in AIC (model with MFAS minus model without) exceeded 6, when the true model was one with MFAS effect.
 :::
 
-### Confidence Interval Coverage
+#### Confidence Interval Coverage
 
 
 ```{r}
@@ -192,7 +216,7 @@ Parameter estimates and 95% confidence intervals for the parameter measuring the
 :::
 
 
-### Power
+#### Power
 
 Based on CIs, how often would we conclude there IS an MFAS effect (when there really is)?
 
@@ -231,7 +255,7 @@ left_join(A,B, by = join_by(model_name)) |>
 Power to detect MFAS effect when it is really present.
 :::
 
-## Case 2: True Model Excludes MFAS Effect
+### Case 2: True Model Excludes MFAS Effect
 
 <!-- ### Read in Results -->
 
@@ -259,7 +283,7 @@ sim_results2 <- bind_rows(sim_results2) |>
 sim_CI2 <- sim_results2
 ```
 
-### AIC and likelihood results
+#### AIC and likelihood results
 
 ::: {#suppfig-dAIC2}
 
@@ -304,7 +328,7 @@ selection_table2 <- selection_table2 |>
 Proportion of simulations where the difference in AIC (model with MFAS minus model without) exceeded 6, when the true model was one *without* MFAS effect.
 :::
 
-### Confidence Interval Coverage
+#### Confidence Interval Coverage
 
 ```{r}
 sim_CI2 <- sim_CI2 |>
@@ -355,3 +379,8 @@ gt(CI_summary2) |>
 Confidence interval coverage in simulations, for simulations in which the true model *did not include* an effect of MFAS on the transition rates. "T->V" is the probability of transition from Typical to Variant state, and "V->T" is Variant to Typical.
 :::
 
+# Discussion
+
+Here, we briefly reported results from a simulation study that arose during our attempts to identify a workable approach to fit the HHMMs: assessing the impact of applying likelihood weights according to time-step duration, motivated by that fact that fine-scale observations may outnumber coarse-scale observations by an order of magnitude. 
+
+While with hindsight it is unsurprising that such a weighting scheme biases inference by yielding unrealistically low uncertainty at the coarser timescale, we still present the finding here as a reminder that, while weighting can be part of a highly effective strategy to help tune *predictive* models (as seen in Sidrow *et al.* 2025 (<https://doi.org/10.1371/journal.pone.0325321>)), a distinct modeling process may be required for accurate *inference* (as pointed out by Bzdok and Ioannidis 2019 (<https://doi.org/10.1016/j.tins.2019.02.001>) and Tredennick *et al.* 2021 (<https://doi.org/10.1002/ecy.3336>)).

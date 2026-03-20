@@ -388,6 +388,44 @@ fine_tally <- data |>
               names_glue = "{`Dive Cycle State`} {.value}",)
 ```
 
+```{r}
+
+data <- data |>
+  group_by(whale_ID, dive_cycle_num) |>
+  mutate(dive_type = if_else(start_time_UTC <= (min(start_time_UTC) + lubridate::seconds(60*60*first(fd_dur_hours))),
+                             "Foraging Dive",
+                             "Non-Foraging Dive")) |> 
+  ungroup()
+
+fine_tally_by_divetype <- data |>
+  group_by(coarse_state, state4, dive_type) |>
+  summarise(`5-Minute Intervals` = n(),
+            .groups = "drop") |>
+  group_by(coarse_state, dive_type) |>
+  mutate(Percent = round(100* `5-Minute Intervals` / sum(`5-Minute Intervals`), digits = 1),
+         .groups = "drop") |> 
+  rename(`Dive Cycle State` = coarse_state,
+         `5-minute State` = state4,
+         `Dive Type` = dive_type) |> 
+  pivot_wider(id_cols = c("5-minute State", "Dive Type"),
+              names_from = `Dive Cycle State`,
+              names_sep = " ",
+              values_from = c("5-Minute Intervals",
+                              "Percent"),
+              names_glue = "{`Dive Cycle State`} {.value}",)
+# data |> 
+#   group_by(dive_type, coarse_state) |> 
+#   summarise(`Percent State 1` = round(100 * sum(state4 == 1)/n(), digits = 1), 
+#             `Percent State 2` = round(100 * sum(state4 == 2)/n(), digits = 1),
+#             `Percent State 3` = round(100 * sum(state4 == 3)/n(), digits = 1),
+#             `Percent State 4` = round(100 * sum(state4 == 4)/n(), digits = 1),
+#             .groups = 'drop') |>
+#   rename(`Dive-Cycle State` = coarse_state,
+#          `Dive Type` = dive_type) |>
+#   gt()
+
+```
+
 :::: {#supptab-fine-tally}
 
 ```{r}
@@ -399,6 +437,19 @@ if (knitr::is_html_output()){
 ```
 
 Occurrences of each of the four states at the five-minute timescale, by HHMM state and MFAS presence.
+::::
+
+:::: {#supptab-fine-tally-by-dive-type}
+
+```{r}
+if (knitr::is_html_output()){
+  DT::datatable(fine_tally_by_divetype)
+}else{
+  gt::gt(fine_tally_by_divetype)
+}
+```
+
+Occurrences of each of the four states at the five-minute timescale, by HHMM state and dive type (foraging or non-foraging).
 ::::
 
 # Duration of Variant State
@@ -571,8 +622,10 @@ plot_dive_profile <- function(whale, data,
       theme(legend.position = c(1,1.1),
             legend.justification = c(1,1)) +
       ylim(depth_lim) +
-      labs(x = "", y = "Median Depth (m)",
-           title = whale) +
+      labs(
+        # title = whale,
+        x = "", 
+        y = "Median Depth (m)") +
       scale_color_manual(name = 'State', 
                          values = c(RColorBrewer::brewer.pal(4, 'Set2')),
                          drop = FALSE) +
@@ -583,31 +636,6 @@ plot_dive_profile <- function(whale, data,
                   inherit.aes = FALSE,
                   data = this_whale_fine |> filter(state %in% paste(c(5:8)))
       )
-  # }else{
-    # # interactive depth trace
-    # 
-    # # make the plot
-    # dive_trace2 <- ggplot(this_whale_fine, 
-    #                       mapping = aes(x = start_time_UTC,
-    #                                     y = med_depth,
-    #                                     group = group_id,
-    #                                     text = paste("State:", state4)
-    #                                     )) +
-    #   geom_path(show.legend = TRUE, size = 0.8) +
-    #   theme(legend.title.position = "left",
-    #         legend.text = element_text(size = 10),
-    #         legend.title = element_text(size = 10)) + 
-    #   ylim(depth_lim) +
-    #   xlab("") + ylab("Depth (m)") +
-    #        ggtitle(whale) +
-    #   geom_ribbon(mapping = aes(x = start_time_UTC, 
-    #                             ymin = min(depth_lim), ymax = max(depth_lim),
-    #                             group = dive_cycle_num),
-    #               fill = 'grey50', alpha = 0.5,
-    #               inherit.aes = FALSE,
-    #               data = this_whale_fine |> filter(state %in% paste(c(5:8)))
-    #   )
-  # }
   
   # panel with RL
   if (sum(!is.na(pull(this_whale_fine, mfas_rl))) == 0){
@@ -641,6 +669,16 @@ plot_dive_profile <- function(whale, data,
     rl_plot <- rl_plot |>
       gf_point(50*orca_presence ~ start_time_UTC, 
                shape = 2, size = rug_size, linewidth = 0.25, alpha = 0.5, color = 'grey40')
+  }
+  
+  if (whale %in% c("Zica-20191012-144029","Zica-20191012-145101")){
+    rl_plot <- rl_plot +
+      geom_vline(xintercept = lubridate::ymd_hms("2019-10-13 05:58:00"),
+                 linetype = "dashed",
+                 color = "black") +
+      geom_vline(xintercept = lubridate::ymd_hms("2019-10-14 13:14:00"),
+                 linetype = "dashed",
+                 color = "black")
   }
   
   if (!interactive){
@@ -679,6 +717,7 @@ whales <- unique(data$whale_ID)
 
 `#set block(breakable: false)`{=typst}
 
+### Zica-20191012-144029
 :::: {#suppfig-dive-profile1}
 
 ```{r}
@@ -690,7 +729,7 @@ if (knitr::is_html_output()){
   # dive_profiles[[w]] <- as_widget(
   plot_dive_profile(whale = whales[w],
                     data = data,
-                    interactive = TRUE)
+                    interactive = TRUE) 
   # )
 #   }
 #   
@@ -707,14 +746,44 @@ if (!knitr::is_html_output()){
   this_plot <- 
     plot_dive_profile(whale = whales[w],
                       data = data,
-                      interactive = FALSE)
+                      interactive = FALSE) 
   print(this_plot)
   # }
 }
 ```
 
-Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Open circles indicate times echosounders were detected on the tag record.
+Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Open circles indicate times echosounders were detected on the tag record. Vertical dotted lines in the lower panel indicate the time-period that the next plot zooms in on.
 ::::
+
+#### Zoomed-in View for Zica-20191012-144029
+:::: {#suppfig-dive-cycle-zoom1}
+
+```{r}
+# 10/13 @ 05:58 until 10/14 @ 13:14
+
+z1data <- data |>
+  filter(whale_ID == "Zica-20191012-144029" &
+           start_time_UTC >= lubridate::ymd_hms("2019-10-13 05:58:00") &
+           start_time_UTC <= lubridate::ymd_hms("2019-10-14 13:14:00"))
+
+if (knitr::is_html_output()){
+  dive_profiles <- htmltools::tagList()
+  my_zoomy_plot <- as_widget(plot_dive_profile(whale = "Zica-20191012-144029",
+                                               data = z1data,
+                                               interactive = TRUE))
+  my_zoomy_plot
+}else{
+  my_zoomy_plot <- plot_dive_profile(whale = "Zica-20191012-144029",
+                                     data = z1data,
+                                     interactive = FALSE)
+  print(my_zoomy_plot)
+}
+```
+
+Zoomed-in view of data from tag Zica-20191012-144029, from 10/13/2019 05:58 until 10/14/2019 13:14 UTC.
+::::
+
+### Zica-20191012-145101
 
 :::: {#suppfig-dive-profile2}
 
@@ -727,7 +796,7 @@ if (knitr::is_html_output()){
   # dive_profiles[[w]] <- as_widget(
   plot_dive_profile(whale = whales[w],
                     data = data,
-                    interactive = TRUE)
+                    interactive = TRUE) 
   # )
 #   }
 #   
@@ -744,15 +813,42 @@ if (!knitr::is_html_output()){
   this_plot <- 
     plot_dive_profile(whale = whales[w],
                       data = data,
-                      interactive = FALSE)
+                      interactive = FALSE) 
   print(this_plot)
   # }
 }
 ```
 
-Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds.
+Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds. Vertical dotted lines in the lower panel indicate the time-period that the next plot zooms in on.
 ::::
 
+#### Zoomed-in View for Zica-20191012-145101
+:::: {#suppfig-dive-cycle-zoom2}
+
+```{r}
+z1data <- data |>
+  filter(whale_ID == "Zica-20191012-145101" &
+           start_time_UTC >= lubridate::ymd_hms("2019-10-13 05:58:00") &
+           start_time_UTC <= lubridate::ymd_hms("2019-10-14 13:14:00"))
+
+if (knitr::is_html_output()){
+  dive_profiles <- htmltools::tagList()
+  my_zoomy_plot <- as_widget(plot_dive_profile(whale = "Zica-20191012-145101",
+                                               data = z1data,
+                                               interactive = TRUE))
+  my_zoomy_plot
+}else{
+  my_zoomy_plot <- plot_dive_profile(whale = "Zica-20191012-145101",
+                                     data = z1data,
+                                     interactive = FALSE)
+  print(my_zoomy_plot)
+}
+```
+
+Zoomed-in view of data from tag Zica-20191012-145101, from 10/13/2019 05:58 until 10/14/2019 13:14 UTC.
+::::
+
+### Zica-20191111-94810
 :::: {#suppfig-dive-profile3}
 
 ```{r}
@@ -790,6 +886,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds.
 ::::
 
+### Zica-20191117-195993
 :::: {#suppfig-dive-profile4}
 
 ```{r}
@@ -827,6 +924,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Open circles indicate times echosounders were detected on the tag record.
 ::::
 
+### Zica-20211112-94819
 :::: {#suppfig-dive-profile5}
 
 ```{r}
@@ -864,6 +962,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. 
 ::::
 
+### Zica-20211113-195993
 :::: {#suppfig-dive-profile6}
 
 ```{r}
@@ -901,6 +1000,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. 
 ::::
 
+### Zica-20220112-195994
 :::: {#suppfig-dive-profile7}
 
 ```{r}
@@ -938,6 +1038,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Open triangles indicate times orca sounds were detected on the tag record.
 ::::
 
+### Zica-20230518-233391
 :::: {#suppfig-dive-profile8}
 
 ```{r}
@@ -975,6 +1076,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Xs indicate times impulsive sounds were detected on the tag record.
 ::::
 
+### Zica-20230519-232950
 :::: {#suppfig-dive-profile9}
 
 ```{r}
@@ -1012,6 +1114,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds.
 ::::
 
+### Zica-20230723-233394
 :::: {#suppfig-dive-profile10}
 
 ```{r}
@@ -1049,6 +1152,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Xs indicate times impulsive sounds were detected on the tag record.
 ::::
 
+### Zica-20230723-233395
 :::: {#suppfig-dive-profile11}
 
 ```{r}
@@ -1086,6 +1190,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds.
 ::::
 
+### Zica-20240227-233396
 :::: {#suppfig-dive-profile12}
 
 ```{r}
@@ -1123,6 +1228,7 @@ if (!knitr::is_html_output()){
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information. Symbols indicate times various sounds were detected on the tag record: open circles for echosounders and Xs for impulsive sounds.
 ::::
 
+### Zica-20240227-240128
 :::: {#suppfig-dive-profile13}
 
 ```{r}
@@ -1158,58 +1264,6 @@ if (!knitr::is_html_output()){
 ```
 
 Dive depth profile for tag `r whales[w]`, with HHMM state and sound exposure information.
-::::
-
-:::: {#suppfig-dive-cycle-zoom1}
-
-```{r}
-# 10/13 @ 05:58 until 10/14 @ 13:14
-
-z1data <- data |>
-  filter(whale_ID == "Zica-20191012-144029" &
-           start_time_UTC >= lubridate::ymd_hms("2019-10-13 05:58:00") &
-           start_time_UTC <= lubridate::ymd_hms("2019-10-14 13:14:00"))
-
-if (knitr::is_html_output()){
-  dive_profiles <- htmltools::tagList()
-  my_zoomy_plot <- as_widget(plot_dive_profile(whale = "Zica-20191012-144029",
-                                               data = z1data,
-                                               interactive = TRUE))
-  my_zoomy_plot
-}else{
-  my_zoomy_plot <- plot_dive_profile(whale = "Zica-20191012-144029",
-                                     data = z1data,
-                                     interactive = FALSE)
-  print(my_zoomy_plot)
-}
-```
-
-Zoomed-in view of data from tag Zica-20191012-144029, from 10/13/2019 05:58 until 10/14/2019 13:14 UTC.
-::::
-
-:::: {#suppfig-dive-cycle-zoom2}
-
-```{r}
-z1data <- data |>
-  filter(whale_ID == "Zica-20191012-145101" &
-           start_time_UTC >= lubridate::ymd_hms("2019-10-13 05:58:00") &
-           start_time_UTC <= lubridate::ymd_hms("2019-10-14 13:14:00"))
-
-if (knitr::is_html_output()){
-  dive_profiles <- htmltools::tagList()
-  my_zoomy_plot <- as_widget(plot_dive_profile(whale = "Zica-20191012-145101",
-                                               data = z1data,
-                                               interactive = TRUE))
-  my_zoomy_plot
-}else{
-  my_zoomy_plot <- plot_dive_profile(whale = "Zica-20191012-145101",
-                                     data = z1data,
-                                     interactive = FALSE)
-  print(my_zoomy_plot)
-}
-```
-
-Zoomed-in view of data from tag Zica-20191012-145101, from 10/13/2019 05:58 until 10/14/2019 13:14 UTC.
 ::::
 
 :::
@@ -1610,6 +1664,8 @@ Dive-cycle characteristics of variant dive cycles as a function of dive-cycle nu
 
 # Depth Distribution of 5-minute States
 
+## Overall
+
 ::: {#suppfig-fine-depth-dist}
 
 ```{r}
@@ -1671,6 +1727,54 @@ gf_point(med_depth ~ fine_mfa_csel,
 
 Depth as a function of MFAS cSEL for 5-minute intervals, by dive-cycle and 5-minute state.
 :::
+
+## By Dive Type
+
+::: {#suppfig-fine-dive-dist}
+
+```{r}
+#| warning: false
+#| message: false
+
+knitr::opts_chunk$set(
+                      fig.width = 3.34646, # "85mm" 
+                      fig.height = 2.5 # "65mm"
+                      )
+theme_set(theme_minimal(base_size = 6))
+
+gf_sina(med_depth ~ coarse_state,
+        colour = rgb(0.5,0.5,0.5, alpha = 0.2),
+        # scale = "width",
+        alpha = 0.05,
+        data = data |> filter(level == "2" & fine_mfa_csel == 0)) |>
+  gf_facet_grid(dive_type ~ wordy_state4) |>
+  gf_theme(scale_color_viridis_c(bquote(Cumulative~MFAS~SEL~(dB~re~1*mu*Pa^2*sec)),
+                        option = "magma", 
+                        direction = -1)) |>
+  gf_sina(med_depth ~ coarse_state,
+        color = ~fine_mfa_csel,
+        # scale = "width",
+        alpha = 0.4,
+        data = data |> filter(level == "2" & fine_mfa_csel > 0)) |>
+  gf_facet_grid(dive_type ~ wordy_state4) |>
+  gf_theme(scale_color_viridis_c(bquote(Cumulative~MFAS~SEL~(dB~re~1*mu*Pa^2*sec)),
+                        option = "magma", 
+                        direction = -1)) |>
+  gf_theme(legend.position = "bottom",
+           legend.key.size = unit(0.35, "cm"),
+           legend.text = element_text(size = 5),
+           legend.title = element_text(size = 5),
+           legend.text.position = "top") |>
+  gf_theme(strip.text = element_text(face="bold", hjust=0)) |>
+  gf_labs(x = "Dive Cycle State",
+          y = "Median Depth (m)") 
+```
+
+Depth distribution of 5-minute intervals, by dive-cycle and 5-minute state and dive type (foraging or non-foraging). Color indicates MFAS cSEL.
+:::
+
+
+
 
 # HHMM Model Validation & Interpretation
 
