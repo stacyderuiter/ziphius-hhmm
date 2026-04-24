@@ -50,10 +50,10 @@ rsconnect/
 # space for "refitted" models
 data/refitted-models/*.RDS
 # fitted models (hidden until accept)
-data/fitted-models/*.RDS
-data/fitted-models/coarse-only
-data/fitted-models/fine-only
-data/simulations
+# data/fitted-models/*.RDS
+# data/fitted-models/coarse-only
+# data/fitted-models/fine-only
+# data/simulations
 
 # Map data
 docs/map_data/
